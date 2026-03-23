@@ -8,43 +8,60 @@ token = os.environ.get('TELEGRAM_TOKEN')
 chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
 def get_translated_utmost():
-    # 1. 막히지 않았던 '정문(메인 주소)'으로 당당하게 들어갑니다.
-    url = "https://utmost.org/"
+    home_url = "https://utmost.org/"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
     }
     
     try:
-        res = requests.get(url, headers=headers, timeout=15)
+        # 1. 홈페이지(대문)에 접속
+        res_home = requests.get(home_url, headers=headers, timeout=15)
+        soup_home = BeautifulSoup(res_home.text, 'html.parser')
+        
+        today_link = home_url
+        
+        # 2. 유저님이 발견하신 진짜 주소의 힌트! 'modern-classic' 방을 찾아 낚아챕니다.
+        for a in soup_home.find_all('a', href=True):
+            if 'modern-classic/' in a['href'] or 'classic/' in a['href']:
+                today_link = a['href']
+                break
+
+        # 3. 찾아낸 진짜 말씀 방으로 입장! (예: The Burning Heart 페이지)
+        res = requests.get(today_link, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 2. 영문 제목 찾기 (유저님이 이미 성공하셨던 부분!)
+        # 4. 제목 찾기
         title_tag = soup.find('h1')
         en_title = title_tag.text.strip() if title_tag else "Today's Devotional"
         
-        # 3. 영문 본문 찾기 (서랍 이름 안 따지고, 긴 글자만 골라내기)
-        # 보통 본문은 article 태그나 main 태그 안에 있습니다.
-        container = soup.find('article') or soup.find('main') or soup.body
-        
+        # 5. 본문 찾기 (사진에서 보여주신 그 긴 문장들!)
         en_paragraphs = []
-        if container:
-            for p in container.find_all('p'):
+        
+        # 홈페이지 간판 글씨를 피하기 위해 진짜 본문 영역(.entry-content)만 노립니다.
+        content_area = soup.select_one('.entry-content') or soup.find('article') or soup.find('main')
+        
+        if content_area:
+            for p in content_area.find_all('p'):
                 text = p.text.strip()
-                # 메뉴나 버튼 글씨를 빼고, '진짜 문장(길이 30자 이상)'만 수집합니다.
-                if len(text) > 30:
+                # 아주 짧은 메뉴 글씨나 엉뚱한 소개글을 걸러내고 '진짜 본문'만 담습니다.
+                if len(text) > 40 and "Read today's daily devotional" not in text:
                     en_paragraphs.append(text)
                     
-        # 번역기가 멈추지 않게 핵심 3~4문단만 챙깁니다.
-        en_content = "\n\n".join(en_paragraphs[:4])
+        # 번역기가 과부하 걸리지 않게 핵심 5문단만 챙깁니다.
+        en_content = "\n\n".join(en_paragraphs[:5])
         if not en_content:
-            en_content = "본문을 가져오지 못했습니다. 사이트 구조가 변경되었을 수 있습니다."
+            en_content = "본문을 가져오지 못했습니다. 링크를 클릭해 원문을 확인해주세요."
 
-        # 4. 구글 번역기 가동! (영어 -> 한국어)
+        # 6. 구글 번역기 가동! (영어 -> 한국어)
         translator = GoogleTranslator(source='en', target='ko')
         ko_title = translator.translate(en_title)
-        ko_content = translator.translate(en_content)
         
-        # 5. 텔레그램 발송용 메시지 조립
+        try:
+            ko_content = translator.translate(en_content)
+        except:
+            ko_content = "본문 번역 중 오류가 발생했습니다. 본문이 너무 길 수 있습니다."
+        
+        # 7. 텔레그램 발송용 조립
         msg = f"🌟 [주님은 나의 최고봉 / My Utmost for His Highest]\n\n"
         msg += f"🇰🇷 제목: {ko_title}\n"
         msg += f"🇺🇸 Title: {en_title}\n\n"
@@ -52,7 +69,7 @@ def get_translated_utmost():
         msg += f"📖 [한국어 묵상]\n{ko_content}\n\n"
         msg += f"───────────────\n"
         msg += f"📖 [English Original]\n{en_content}\n\n"
-        msg += f"🔗 원문 전체 읽기: {res.url}"
+        msg += f"🔗 원문 전체 읽기: {today_link}"
         
         return msg
         
