@@ -6,66 +6,49 @@ import os
 token = os.environ.get('TELEGRAM_TOKEN')
 chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
-def get_word_card():
-    # 📡 갓피플 '오늘의 말씀' 게시판 주소
-    url = "https://cnts.godpeople.com/p/category/word"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+def get_su_word():
+    # 유저님이 이미 성공하셨던 '매일성경' 주소입니다!
+    url = "https://sum.su.or.kr:8888/bible/today"
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     try:
-        # 1. 갓피플 게시판 접속
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 2. 가장 첫 번째 게시글(최신 말씀) 링크 낚아채기
-        first_post = soup.select_one('.post-title a') or soup.select_one('article a')
-        if not first_post:
-            return None, "오늘의 말씀 게시글을 찾지 못했어요."
-            
-        post_url = first_post.get('href')
+        # 제목 찾기
+        title_tag = soup.select_one('.bible_text')
+        title = title_tag.text.strip() if title_tag else "오늘의 묵상"
         
-        # 3. 진짜 게시글 안에 들어가서 '이미지' 주소 꺼내오기
-        res_post = requests.get(post_url, headers=headers, timeout=15)
-        soup_post = BeautifulSoup(res_post.text, 'html.parser')
-        
-        # 보통 사이트는 og:image 태그에 가장 고화질 대표 이미지를 걸어둡니다.
-        meta_img = soup_post.find('meta', property='og:image')
-        title_meta = soup_post.find('meta', property='og:title')
-        
-        if meta_img and meta_img.get('content'):
-            img_url = meta_img.get('content')
-            title = title_meta.get('content') if title_meta else "오늘의 말씀 카드"
+        # 본문 말씀 찾기 (너무 길지 않게 딱 5구절만 예쁘게 자르기)
+        verses = soup.select('.body_list li')
+        verse_text = ""
+        for v in verses[:5]: 
+            num = v.select_one('.num').text if v.select_one('.num') else ""
+            info = v.select_one('.info').text if v.select_one('.info') else ""
+            verse_text += f"{num} {info}\n\n"
             
-            # 사진 밑에 달릴 짧은 설명(캡션)
-            caption = f"🌅 [{title}]\n\n오늘도 주님 안에서 승리하는 하루 보내세요!\n🔗 출처: 갓피플"
-            return img_url, caption
-            
-        return None, "이미지를 추출하지 못했습니다."
+        # 텔레그램 사진 밑에 달릴 예쁜 설명(캡션) 만들기
+        caption = f"🌿 [오늘의 매일성경]\n\n📖 {title}\n\n{verse_text}...\n\n🔗 전문 묵상하기: {url}"
+        return caption
     except Exception as e:
-        return None, f"카드 배달 중 에러: {str(e)}"
+        return f"말씀 배달 중 에러가 발생했습니다: {str(e)}"
 
-def send_telegram_photo(photo_url, caption):
-    # 🌟 핵심! 텍스트(sendMessage)가 아닌 사진(sendPhoto)을 보내는 텔레그램 명령!
+def send_telegram_card(caption):
+    # 🌅 매일 무작위로 바뀌는 고화질 자연 풍경 사진 주소 (무료 API)
+    photo_url = "https://picsum.photos/800/600/?nature,peace"
+    
+    # 🌟 글씨만 보내는 sendMessage가 아니라, 사진을 보내는 sendPhoto 명령!
     url = f"https://api.telegram.org/bot{token}/sendPhoto"
     payload = {
         "chat_id": chat_id,
-        "photo": photo_url,
-        "caption": caption
+        "photo": photo_url,    # 이 사진과 함께
+        "caption": caption     # 매일성경 말씀을 덧붙여서 보냅니다.
     }
     requests.post(url, json=payload)
 
-def send_telegram_text(message):
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message}
-    requests.post(url, json=payload)
-
 if __name__ == "__main__":
-    # 로봇 실행
-    img_url, caption = get_word_card()
+    # 1. 매일성경 텍스트 가져오기
+    word_caption = get_su_word()
     
-    if img_url:
-        send_telegram_photo(img_url, caption)
-    else:
-        # 사진을 못 찾으면 텍스트로 에러 메시지 전송
-        send_telegram_text(caption)
+    # 2. 멋진 사진과 함께 텔레그램으로 쏘기!
+    send_telegram_card(word_caption)
