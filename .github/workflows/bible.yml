@@ -2,7 +2,8 @@ name: Daily Bible Verse
 
 on:
   schedule:
-    - cron: '0 23 * * *'
+    # 🌟 영국 시간 20:20 (한국 시간 아침 5시 20분)에 매일 실행!
+    - cron: '20 20 * * *'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +18,6 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        # 🌟 여기에 번역기(deep-translator)를 추가했습니다!
         run: |
           pip install requests beautifulsoup4 deep-translator
 
