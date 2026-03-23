@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 from deep_translator import GoogleTranslator
-import time # 메시지가 엉키지 않게 시간을 두는 부품
+import time
 
 # 🔐 금고 설정
 token = os.environ.get('TELEGRAM_TOKEN')
@@ -17,9 +17,16 @@ def get_su_word_full():
     try:
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
+        
+        # 제목 찾기
         title_tag = soup.select_one('.bible_text')
         title = title_tag.text.strip() if title_tag else "오늘의 묵상"
         
+        # 🌟 추가된 부분: 성경 본문 범위와 찬송가 정보 찾기
+        info_tag = soup.select_one('.bible_info')
+        passage_info = info_tag.text.strip() if info_tag else ""
+        
+        # 본문 말씀 찾기
         verses = soup.select('.body_list li')
         verse_text = ""
         for v in verses: 
@@ -27,7 +34,15 @@ def get_su_word_full():
             info = v.select_one('.info').text if v.select_one('.info') else ""
             verse_text += f"{num} {info}\n\n"
             
-        full_text = f"🌿 [오늘의 매일성경]\n\n📖 {title}\n\n{verse_text}🔗 전문 묵상하기: {url}"
+        # 전체 텍스트 조립 (본문 정보 예쁘게 추가!)
+        full_text = f"🌿 [오늘의 매일성경]\n\n"
+        full_text += f"📖 제목: {title}\n"
+        if passage_info:
+            full_text += f"🔖 {passage_info}\n\n" # 빨간 동그라미 친 부분이 여기에 들어갑니다!
+        else:
+            full_text += "\n"
+        full_text += f"{verse_text}🔗 전문 묵상하기: {url}"
+        
         return full_text
     except Exception as e:
         return f"매일성경 배달 중 에러: {str(e)}"
@@ -95,17 +110,14 @@ def send_telegram_text(message):
     requests.post(url, json=payload)
 
 # ==========================================
-# 🚀 메인 실행 부분 (순서대로 배달!)
+# 🚀 메인 실행 부분
 # ==========================================
 if __name__ == "__main__":
-    # 1. 매일성경 배달 (사진 먼저 -> 본문)
     send_telegram_photo()
     su_text = get_su_word_full()
     send_telegram_text(su_text)
     
-    # 메시지가 섞이지 않게 3초만 숨 고르기
     time.sleep(3)
     
-    # 2. 주님은 나의 최고봉 배달 (한영 번역)
     utmost_text = get_translated_utmost()
     send_telegram_text(utmost_text)
