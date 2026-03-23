@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-import xml.etree.ElementTree as ET
 from deep_translator import GoogleTranslator
 
 # 🔐 금고 설정
@@ -9,43 +8,43 @@ token = os.environ.get('TELEGRAM_TOKEN')
 chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
 def get_translated_utmost():
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # 1. 막히지 않았던 '정문(메인 주소)'으로 당당하게 들어갑니다.
+    url = "https://utmost.org/"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+    }
     
     try:
-        # 1. 사이트의 '비밀 통로(RSS)'에서 오늘 날짜의 진짜 주소 알아내기
-        feed_url = "https://utmost.org/feed/"
-        feed_res = requests.get(feed_url, headers=headers, timeout=15)
-        root = ET.fromstring(feed_res.content)
-        item = root.find('.//item') # 가장 최신 글 찾기
+        res = requests.get(url, headers=headers, timeout=15)
+        soup = BeautifulSoup(res.text, 'html.parser')
         
-        en_title = item.find('title').text.strip()
-        post_link = item.find('link').text.strip()
+        # 2. 영문 제목 찾기 (유저님이 이미 성공하셨던 부분!)
+        title_tag = soup.find('h1')
+        en_title = title_tag.text.strip() if title_tag else "Today's Devotional"
         
-        # 2. 로봇이 진짜 주소로 '클릭'해서 들어가기
-        page_res = requests.get(post_link, headers=headers, timeout=15)
-        soup = BeautifulSoup(page_res.text, 'html.parser')
+        # 3. 영문 본문 찾기 (서랍 이름 안 따지고, 긴 글자만 골라내기)
+        # 보통 본문은 article 태그나 main 태그 안에 있습니다.
+        container = soup.find('article') or soup.find('main') or soup.body
         
-        # 3. 본문 텍스트 긁어오기
-        content_div = soup.select_one('.entry-content')
         en_paragraphs = []
-        if content_div:
-            # 영어 문단들을 차곡차곡 모읍니다
-            for p in content_div.find_all('p'):
+        if container:
+            for p in container.find_all('p'):
                 text = p.text.strip()
-                if text:
+                # 메뉴나 버튼 글씨를 빼고, '진짜 문장(길이 30자 이상)'만 수집합니다.
+                if len(text) > 30:
                     en_paragraphs.append(text)
                     
-        # 영어 본문 조립 (너무 길면 번역기가 힘들어하므로 핵심 4문단만)
+        # 번역기가 멈추지 않게 핵심 3~4문단만 챙깁니다.
         en_content = "\n\n".join(en_paragraphs[:4])
         if not en_content:
-            en_content = "본문을 가져오지 못했습니다."
+            en_content = "본문을 가져오지 못했습니다. 사이트 구조가 변경되었을 수 있습니다."
 
         # 4. 구글 번역기 가동! (영어 -> 한국어)
         translator = GoogleTranslator(source='en', target='ko')
         ko_title = translator.translate(en_title)
         ko_content = translator.translate(en_content)
         
-        # 5. 텔레그램으로 보낼 편지 예쁘게 포장하기
+        # 5. 텔레그램 발송용 메시지 조립
         msg = f"🌟 [주님은 나의 최고봉 / My Utmost for His Highest]\n\n"
         msg += f"🇰🇷 제목: {ko_title}\n"
         msg += f"🇺🇸 Title: {en_title}\n\n"
@@ -53,12 +52,12 @@ def get_translated_utmost():
         msg += f"📖 [한국어 묵상]\n{ko_content}\n\n"
         msg += f"───────────────\n"
         msg += f"📖 [English Original]\n{en_content}\n\n"
-        msg += f"🔗 원문 전체 읽기: {post_link}"
+        msg += f"🔗 원문 전체 읽기: {res.url}"
         
         return msg
         
     except Exception as e:
-        return f"번역 배달 중 에러가 발생했습니다: {str(e)}"
+        return f"말씀 배달 중 에러가 발생했습니다: {str(e)}"
 
 def send_telegram_text(message):
     safe_message = message[:4000]
