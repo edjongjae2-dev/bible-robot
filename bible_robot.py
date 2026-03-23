@@ -22,9 +22,18 @@ def get_su_word_full():
         title_tag = soup.select_one('.bible_text')
         title = title_tag.text.strip() if title_tag else "오늘의 묵상"
         
-        # 🌟 추가된 부분: 성경 본문 범위와 찬송가 정보 찾기
-        info_tag = soup.select_one('.bible_info')
-        passage_info = info_tag.text.strip() if info_tag else ""
+        # 🌟 본문 범위와 찬송가 정보 찾기 (가장 튼튼한 진공청소기 방식)
+        passage_info = ""
+        for div in soup.find_all('div'):
+            # div 안의 글자들을 공백으로 띄워서 가져옵니다.
+            text = div.get_text(separator=' ', strip=True)
+            # 글자에 '본문'과 '찬송'이 들어가 있고, 너무 길지 않은 알짜배기 문장만 낚아채기
+            if "본문" in text and "찬송" in text and len(text) < 150:
+                # 만약 같은 상자 안에 제목이 섞여 있다면 제목 글자는 지워줍니다.
+                if title in text:
+                    text = text.replace(title, "").strip()
+                passage_info = " ".join(text.split()) # 예쁘게 한 줄로 정리
+                break
         
         # 본문 말씀 찾기
         verses = soup.select('.body_list li')
@@ -34,13 +43,13 @@ def get_su_word_full():
             info = v.select_one('.info').text if v.select_one('.info') else ""
             verse_text += f"{num} {info}\n\n"
             
-        # 전체 텍스트 조립 (본문 정보 예쁘게 추가!)
+        # 🌟 전체 텍스트 예쁘게 조립하기 (원하시는 빨간 동그라미 형식!)
         full_text = f"🌿 [오늘의 매일성경]\n\n"
-        full_text += f"📖 제목: {title}\n"
+        
         if passage_info:
-            full_text += f"🔖 {passage_info}\n\n" # 빨간 동그라미 친 부분이 여기에 들어갑니다!
-        else:
-            full_text += "\n"
+            full_text += f"📖 {passage_info}\n\n"
+            
+        full_text += f"🔖 제목: {title}\n\n"
         full_text += f"{verse_text}🔗 전문 묵상하기: {url}"
         
         return full_text
