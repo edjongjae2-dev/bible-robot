@@ -2,9 +2,8 @@ name: Daily Bible Verse
 
 on:
   schedule:
-    # 한국 시간(KST) 매일 오전 8시 설정 (UTC 23:00)
     - cron: '0 23 * * *'
-  workflow_dispatch: # 우리가 지금 바로 눌러볼 수 있는 버튼 생성
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,8 +17,9 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
+        # 🌟 여기에 번역기(deep-translator)를 추가했습니다!
         run: |
-          pip install requests beautifulsoup4
+          pip install requests beautifulsoup4 deep-translator
 
       - name: Run Bible Robot
         env:
