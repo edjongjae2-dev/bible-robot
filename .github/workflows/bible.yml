@@ -1,28 +1,34 @@
-name: Daily Bible Verse
+name: Daily Bible & News Robot
 
 on:
   schedule:
-    # 🌟 영국 시간 20:20 (한국 시간 아침 5시 20분)에 매일 실행!
-    - cron: '20 20 * * *'
-  workflow_dispatch:
+    # 한국 시간(KST)은 UTC보다 9시간 빠릅니다.
+    # 한국 시간 새벽 04:32에 맞추기 위해 UTC 기준 19:32로 설정합니다.
+    # (19:32 + 9시간 = 다음날 04:32)
+    # 정각(00)이나 30분을 피해서 32분으로 설정하면 대기 줄이 짧아집니다.
+    - cron: '32 19 * * *'
+  workflow_dispatch: # 언제든 수동으로 실행할 수 있는 버튼 활성화
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/academic/python@v4 # 또는 기존에 사용하던 python 설정
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          pip install requests beautifulsoup4 deep-translator
+          pip install requests yfinance beautifulsoup4
 
-      - name: Run Bible Robot
+      - name: Run Robot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python bible_robot.py
+          # 만약 제미나이 AI를 쓰신다면 아래 줄도 유지하세요.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python briefing_robot.py
