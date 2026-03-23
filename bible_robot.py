@@ -18,24 +18,18 @@ def get_su_word_full():
         res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 제목 찾기
         title_tag = soup.select_one('.bible_text')
         title = title_tag.text.strip() if title_tag else "오늘의 묵상"
         
-        # 🌟 본문 범위와 찬송가 정보 찾기 (가장 튼튼한 진공청소기 방식)
         passage_info = ""
         for div in soup.find_all('div'):
-            # div 안의 글자들을 공백으로 띄워서 가져옵니다.
             text = div.get_text(separator=' ', strip=True)
-            # 글자에 '본문'과 '찬송'이 들어가 있고, 너무 길지 않은 알짜배기 문장만 낚아채기
             if "본문" in text and "찬송" in text and len(text) < 150:
-                # 만약 같은 상자 안에 제목이 섞여 있다면 제목 글자는 지워줍니다.
                 if title in text:
                     text = text.replace(title, "").strip()
-                passage_info = " ".join(text.split()) # 예쁘게 한 줄로 정리
+                passage_info = " ".join(text.split())
                 break
         
-        # 본문 말씀 찾기
         verses = soup.select('.body_list li')
         verse_text = ""
         for v in verses: 
@@ -43,15 +37,11 @@ def get_su_word_full():
             info = v.select_one('.info').text if v.select_one('.info') else ""
             verse_text += f"{num} {info}\n\n"
             
-        # 🌟 전체 텍스트 예쁘게 조립하기 (원하시는 빨간 동그라미 형식!)
         full_text = f"🌿 [오늘의 매일성경]\n\n"
-        
         if passage_info:
             full_text += f"📖 {passage_info}\n\n"
-            
         full_text += f"🔖 제목: {title}\n\n"
         full_text += f"{verse_text}🔗 전문 묵상하기: {url}"
-        
         return full_text
     except Exception as e:
         return f"매일성경 배달 중 에러: {str(e)}"
@@ -87,8 +77,10 @@ def get_translated_utmost():
         en_paragraphs = []
         for p in soup.find_all('p'):
             text = p.text.strip()
+            # 🌟 똑같은 문장이 두 번 들어가는 것을 막는 방어막(not in) 추가!
             if len(text) > 50 and "Read today's" not in text and "Our Daily Bread" not in text and "delivered to your inbox" not in text:
-                en_paragraphs.append(text)
+                if text not in en_paragraphs:
+                    en_paragraphs.append(text)
                 
         en_content = "\n\n".join(en_paragraphs[:5])
         if not en_content:
@@ -118,9 +110,6 @@ def send_telegram_text(message):
     payload = {"chat_id": chat_id, "text": safe_message}
     requests.post(url, json=payload)
 
-# ==========================================
-# 🚀 메인 실행 부분
-# ==========================================
 if __name__ == "__main__":
     send_telegram_photo()
     su_text = get_su_word_full()
