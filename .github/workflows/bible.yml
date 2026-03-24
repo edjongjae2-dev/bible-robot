@@ -2,12 +2,9 @@ name: Daily Bible & News Robot
 
 on:
   schedule:
-    # 한국 시간(KST)은 UTC보다 9시간 빠릅니다.
-    # 한국 시간 새벽 04:32에 맞추기 위해 UTC 기준 19:32로 설정합니다.
-    # (19:32 + 9시간 = 다음날 04:32)
-    # 정각(00)이나 30분을 피해서 32분으로 설정하면 대기 줄이 짧아집니다.
+    # 한국 시간(KST) 새벽 04:32 (UTC 기준 19:32)
     - cron: '32 19 * * *'
-  workflow_dispatch: # 언제든 수동으로 실행할 수 있는 버튼 활성화
+  workflow_dispatch: # 수동 실행 버튼
 
 jobs:
   build:
@@ -17,7 +14,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/academic/python@v4 # 또는 기존에 사용하던 python 설정
+        uses: actions/setup-python@v4  # 🌟 이 부분을 수정했습니다!
         with:
           python-version: '3.9'
 
@@ -29,6 +26,5 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # 만약 제미나이 AI를 쓰신다면 아래 줄도 유지하세요.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python briefing_robot.py
