@@ -47,10 +47,26 @@ def get_su_word_full():
         return f"매일성경 배달 중 에러: {str(e)}"
 
 def send_telegram_photo():
-    photo_url = "https://picsum.photos/800/600/?nature,peace"
+    # 🌟 텔레그램의 '기억(캐시)'을 속이기 위해 매번 다른 숫자를 주소 뒤에 붙입니다.
+    # time.time()을 쓰면 매초 숫자가 바뀌므로 가장 확실합니다.
+    random_id = int(time.time())
+    photo_url = f"https://picsum.photos/800/600/?nature,peace&sig={random_id}"
+    
     url = f"https://api.telegram.org/bot{token}/sendPhoto"
-    payload = {"chat_id": chat_id, "photo": photo_url, "caption": "오늘의 묵상 배달이 도착했습니다 💌"}
-    requests.post(url, json=payload)
+    
+    # 🌟 캡션 문구도 매일 다르게 나오면 더 좋겠죠? (선택 사항)
+    payload = {
+        "chat_id": chat_id, 
+        "photo": photo_url, 
+        "caption": "오늘의 묵상 배달이 도착했습니다 💌"
+    }
+    
+    try:
+        res = requests.post(url, json=payload, timeout=15)
+        if res.status_code != 200:
+            print(f"사진 전송 실패: {res.text}")
+    except Exception as e:
+        print(f"사진 전송 중 에러: {str(e)}")
 
 # ==========================================
 # 2. 주님은 나의 최고봉 (번역) 가져오기
